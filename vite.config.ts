@@ -10,7 +10,8 @@ export default defineConfig({
     target: 'es2020',
   },
   server: {
-    port: 8080,
-    open: true,
+    port: 5000,
+    host: '0.0.0.0',
+    allowedHosts: true,
   },
 });

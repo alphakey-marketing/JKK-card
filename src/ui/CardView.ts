@@ -64,7 +64,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // Type badge
     this.typeText = scene.add.text(-halfW + 4, -halfH + 4, typeInfo.ja, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: typeInfo.color,
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -72,7 +72,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // Cost badge (top right)
     this.costText = scene.add.text(halfW - 4, -halfH + 4, `呪:${card.cost}`, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#FFCC00',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -126,7 +126,7 @@ export class CardView extends Phaser.GameObjects.Container {
     const wrapWidth = Math.floor((CARD_WIDTH - 10) / 9);
     const effectLines = wrapText(card.effect.descriptionJa, wrapWidth);
     this.effectText = scene.add.text(0, statsY + 18, effectLines.join('\n'), {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#ddddff',
       fontFamily: "'Noto Serif JP', serif",
       align: 'center',

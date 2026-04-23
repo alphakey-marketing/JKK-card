@@ -18,8 +18,8 @@ const config: Phaser.Types.Core.GameConfig = {
   render: {
     antialias: true,
     pixelArt: false,
-    // Phaser 3.60+ automatically renders at window.devicePixelRatio via the Scale Manager
-  } as Phaser.Types.Core.RendererConfig,
+    resolution: window.devicePixelRatio ?? 1,
+  } as Phaser.Types.Core.RenderConfig,
 };
 
 // Wait for fonts to load before starting the game

@@ -103,11 +103,11 @@ export class GameScene extends Phaser.Scene {
     divGfx.lineBetween(0, midY, this.RIGHT_PANEL_X - 5, midY);
 
     this.turnInfoText = this.add.text(this.RIGHT_PANEL_X / 2, midY - 10, '', {
-      fontSize: '12px', color: '#ffffff', fontFamily: "'Noto Serif JP', serif", fontStyle: 'bold',
+      fontSize: '16px', color: '#ffffff', fontFamily: "'Noto Sans JP', sans-serif", fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.phaseText = this.add.text(this.RIGHT_PANEL_X / 2, midY + 6, '', {
-      fontSize: '10px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
+    this.phaseText = this.add.text(this.RIGHT_PANEL_X / 2, midY + 8, '', {
+      fontSize: '13px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
     }).setOrigin(0.5, 0.5);
 
     // ── Player Board Area ────────────────────────────────────────────
@@ -185,14 +185,14 @@ export class GameScene extends Phaser.Scene {
 
     const logX = this.RIGHT_PANEL_X + 8;
     this.add.text(logX, 116, 'せんとうきろく', {
-      fontSize: '9px', color: '#555555', fontFamily: "'Noto Serif JP', serif",
+      fontSize: '11px', color: '#555555', fontFamily: "'Noto Serif JP', serif",
     });
     this.add.text(logX, 128, '戦闘記録', {
-      fontSize: '12px', color: '#777777', fontFamily: "'Noto Serif JP', serif",
+      fontSize: '14px', color: '#777777', fontFamily: "'Noto Serif JP', serif",
     });
 
-    this.logText = this.add.text(logX, 144, '', {
-      fontSize: '11px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
+    this.logText = this.add.text(logX, 146, '', {
+      fontSize: '13px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
       wordWrap: { width: width - this.RIGHT_PANEL_X - 16 },
       lineSpacing: 2,
     });

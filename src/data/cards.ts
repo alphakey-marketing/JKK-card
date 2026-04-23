@@ -840,7 +840,7 @@ export const ALL_CARDS: CardData[] = [
     nameEn: 'Barrier Wall',
     type: CardType.SORCERER,
     faction: Faction.SPECIAL_GRADE,
-    cost: 3, power: 0, defense: 6, hp: 14,
+    cost: 3, power: 2, defense: 6, hp: 14,
     effect: { type: EffectType.SHIELD, value: 6, description: 'Gain 6 shield', descriptionJa: '呪力の壁' },
     flavorTextJa: '呪力の壁',
   },
@@ -1267,8 +1267,8 @@ export const SYNERGY_BONDS: SynergyBond[] = [
   },
   {
     cardA: 'megumi_base',
-    cardB: 'divine_dog',
-    descriptionJa: '神の犬との絆：神の犬のHP+2',
+    cardB: 'serpent_summon',
+    descriptionJa: '影法術の絆：大蛇のHP+2',
     effect: { type: EffectType.BUFF_UNIT_HP, value: 2 },
   },
 ];

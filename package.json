@@ -1,0 +1,33 @@
+{
+  "name": "jkk-card",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alphakey-marketing/JKK-card.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/alphakey-marketing/JKK-card/issues"
+  },
+  "homepage": "https://github.com/alphakey-marketing/JKK-card#readme",
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "terser": "^5.46.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.9"
+  }
+}

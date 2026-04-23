@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>呪術廻戦カードゲーム</title>
+  <style>
+    @font-face {
+      font-family: 'Noto Serif JP';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/fonts/NotoSerifJP-Regular.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Noto Serif JP';
+      font-style: normal;
+      font-weight: 700;
+      src: url('/fonts/NotoSerifJP-Bold.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Noto Sans JP';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/fonts/NotoSansJP-Regular.woff2') format('woff2');
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Noto Serif JP', serif;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

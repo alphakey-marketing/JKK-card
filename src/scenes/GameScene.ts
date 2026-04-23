@@ -551,7 +551,7 @@ export class GameScene extends Phaser.Scene {
     this.renderBoard('player');
     this.updateUI();
 
-    if (action !== null && this.gameState.phase !== 'GAME_OVER') {
+    if (action !== null && this.gameState.winner === null) {
       this.time.delayedCall(600, () => {
         this.executeAIStepLoop(maxSteps - 1);
       });

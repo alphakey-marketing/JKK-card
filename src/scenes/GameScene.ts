@@ -228,10 +228,8 @@ export class GameScene extends Phaser.Scene {
     if (units.length === 0) return;
 
     const boardY = owner === 'ai' ? this.AI_BOARD_Y : this.PLAYER_BOARD_Y;
-    const totalW = units.length * (UNIT_WIDTH + 8) - 8;
     const availW = this.RIGHT_PANEL_X - 10;
     const spacing = Math.min(UNIT_WIDTH + 8, availW / units.length);
-    const startX = (availW - (units.length - 1) * spacing) / 2 + spacing / 2 - spacing / 2;
     // Center units in available width
     const totalUsed = (units.length - 1) * spacing + UNIT_WIDTH;
     const sx = (availW - totalUsed) / 2 + UNIT_WIDTH / 2;
@@ -269,10 +267,6 @@ export class GameScene extends Phaser.Scene {
       }
       this.boardUnitViews[owner].push(view);
     });
-
-    // Suppress unused variable warning
-    void totalW;
-    void startX;
   }
 
   private handleBoardUnitClick(view: BoardUnitView, owner: 'player' | 'ai'): void {
@@ -639,7 +633,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showMessage(text: string, color = '#ffffff'): void {
-    const { width, height } = this.scale;
+    const { height } = this.scale;
     const msg = this.add.text(this.RIGHT_PANEL_X / 2, height / 2 - 40, text, {
       fontSize: '14px', color,
       fontFamily: "'Noto Serif JP', serif",
@@ -655,8 +649,6 @@ export class GameScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => msg.destroy(),
     });
-
-    void width;
   }
 
   private checkGameOver(): void {

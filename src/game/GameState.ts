@@ -1,8 +1,18 @@
-import { DeckCard, buildDeck } from '../data/decks';
-import { CardType, EffectType } from '../data/cards';
+import { DeckCard, buildDeck, YUJI_DECK_IDS, MEGUMI_DECK_IDS, NOBARA_DECK_IDS, GOJO_DECK_IDS } from '../data/decks';
+import { CardType, EffectType, HERO_POWERS } from '../data/cards';
+
+export interface BoardUnit {
+  card: DeckCard;
+  instanceId: string;
+  currentHp: number;
+  attack: number;
+  canAttack: boolean;
+  isExhausted: boolean;
+}
 
 export interface PlayerState {
   id: 'player' | 'ai';
+  heroId: string;
   nameJa: string;
   nameFurigana: string;
   hp: number;
@@ -14,36 +24,45 @@ export interface PlayerState {
   deck: DeckCard[];
   hand: DeckCard[];
   discardPile: DeckCard[];
-  activeSorcerer: DeckCard | null;
+  board: BoardUnit[];
+  heroPowerUsed: boolean;
+  maxBoardSize: number;
 }
 
-export type GamePhase =
-  | 'DRAW'
-  | 'MAIN'
-  | 'END'
-  | 'GAME_OVER';
+export type GamePhase = 'DRAW' | 'MAIN' | 'END' | 'GAME_OVER';
 
 export interface GameState {
   turn: number;
   phase: GamePhase;
   activePlayer: 'player' | 'ai';
-  players: {
-    player: PlayerState;
-    ai: PlayerState;
-  };
+  players: { player: PlayerState; ai: PlayerState };
   log: string[];
   winner: 'player' | 'ai' | null;
   pendingEffects: string[];
 }
 
 const STARTING_HP = 30;
-const MAX_CURSED_ENERGY = 10;
-const HAND_SIZE = 5;
-const ENERGY_PER_TURN = 3;
+const HAND_SIZE = 4;
 
-/**
- * デッキをシャッフルする
- */
+const CHARACTER_INFO: Record<string, {
+  nameJa: string;
+  nameFurigana: string;
+  deckIds: string[];
+  heroId: string;
+}> = {
+  yuji: { nameJa: '虎杖悠仁', nameFurigana: 'いたどりゆうじ', deckIds: YUJI_DECK_IDS, heroId: 'yuji' },
+  megumi: { nameJa: '伏黒恵', nameFurigana: 'ふしぐろめぐみ', deckIds: MEGUMI_DECK_IDS, heroId: 'megumi' },
+  nobara: { nameJa: '釘崎野薔薇', nameFurigana: 'くぎさきのばら', deckIds: NOBARA_DECK_IDS, heroId: 'nobara' },
+  gojo: { nameJa: '五条悟', nameFurigana: 'ごじょうさとる', deckIds: GOJO_DECK_IDS, heroId: 'gojo' },
+};
+
+const AI_OPPONENT: Record<string, string> = {
+  yuji: 'megumi',
+  megumi: 'yuji',
+  nobara: 'gojo',
+  gojo: 'nobara',
+};
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -53,79 +72,60 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/**
- * プレイヤーの初期状態を作成
- */
-function createPlayer(
-  id: 'player' | 'ai',
-  nameJa: string,
-  nameFurigana: string,
-  deckIds: string[]
-): PlayerState {
-  const deck = shuffle(buildDeck(deckIds));
+function createPlayer(id: 'player' | 'ai', charKey: string): PlayerState {
+  const info = CHARACTER_INFO[charKey];
+  if (!info) throw new Error(`Unknown character: ${charKey}`);
+  const deck = shuffle(buildDeck(info.deckIds));
   return {
     id,
-    nameJa,
-    nameFurigana,
+    heroId: info.heroId,
+    nameJa: info.nameJa,
+    nameFurigana: info.nameFurigana,
     hp: STARTING_HP,
     maxHp: STARTING_HP,
-    cursedEnergy: ENERGY_PER_TURN,
-    maxCursedEnergy: MAX_CURSED_ENERGY,
+    cursedEnergy: 1,
+    maxCursedEnergy: 1,
     shield: 0,
     attackBuff: 0,
     deck,
     hand: [],
     discardPile: [],
-    activeSorcerer: null,
+    board: [],
+    heroPowerUsed: false,
+    maxBoardSize: 4,
   };
 }
 
-/**
- * ゲームを初期化する
- */
 export function initGame(
-  yujiDeckIds: string[],
-  megumiDeckIds: string[],
-  playerChoose: 'yuji' | 'megumi' = 'yuji'
+  playerChoice: 'yuji' | 'megumi' | 'nobara' | 'gojo' = 'yuji'
 ): GameState {
-  const playerDeckIds = playerChoose === 'yuji' ? yujiDeckIds : megumiDeckIds;
-  const aiDeckIds = playerChoose === 'yuji' ? megumiDeckIds : yujiDeckIds;
-  const playerName = playerChoose === 'yuji'
-    ? { ja: '虎杖悠仁', furi: 'いたどりゆうじ' }
-    : { ja: '伏黒恵', furi: 'ふしぐろめぐみ' };
-  const aiName = playerChoose === 'yuji'
-    ? { ja: '伏黒恵', furi: 'ふしぐろめぐみ' }
-    : { ja: '虎杖悠仁', furi: 'いたどりゆうじ' };
+  const aiChoice = (AI_OPPONENT[playerChoice] ?? 'megumi') as 'yuji' | 'megumi' | 'nobara' | 'gojo';
 
-  const player = createPlayer('player', playerName.ja, playerName.furi, playerDeckIds);
-  const ai = createPlayer('ai', aiName.ja, aiName.furi, aiDeckIds);
+  const player = createPlayer('player', playerChoice);
+  const ai = createPlayer('ai', aiChoice);
 
-  // Draw initial hands
   for (let i = 0; i < HAND_SIZE; i++) {
     drawCard(player);
     drawCard(ai);
   }
 
+  const playerName = CHARACTER_INFO[playerChoice]?.nameJa ?? playerChoice;
   return {
     turn: 1,
-    phase: 'DRAW',
+    phase: 'MAIN',
     activePlayer: 'player',
     players: { player, ai },
-    log: ['ゲーム開始！', `${playerName.ja}のターン`],
+    log: ['ゲーム開始！', `${playerName}のターン`],
     winner: null,
     pendingEffects: [],
   };
 }
 
-/**
- * カードをデッキから手札へ引く
- */
 export function drawCard(ps: PlayerState, count = 1): number {
   let drawn = 0;
   for (let i = 0; i < count; i++) {
-    if (ps.hand.length >= 8) break; // Max hand size
+    if (ps.hand.length >= 8) break;
     if (ps.deck.length === 0) {
-      // Reshuffle discard
       if (ps.discardPile.length === 0) break;
       ps.deck = shuffle([...ps.discardPile]);
       ps.discardPile = [];
@@ -137,26 +137,27 @@ export function drawCard(ps: PlayerState, count = 1): number {
   return drawn;
 }
 
-/**
- * ターン開始時の処理
- */
 export function startTurn(state: GameState): void {
   const ap = state.players[state.activePlayer];
   state.phase = 'DRAW';
 
-  // Restore cursed energy
-  ap.cursedEnergy = Math.min(ap.maxCursedEnergy, ap.cursedEnergy + ENERGY_PER_TURN + Math.floor(state.turn / 3));
+  // Hearthstone-style energy: turn 1 = 1 max, turn 2 = 2 max, ..., capped at 10
+  ap.maxCursedEnergy = Math.min(state.turn, 10);
+  ap.cursedEnergy = ap.maxCursedEnergy;
 
-  // Draw 1 card at turn start
+  // Refresh board units
+  ap.board.forEach(unit => {
+    unit.canAttack = true;
+    unit.isExhausted = false;
+  });
+  ap.heroPowerUsed = false;
+
   const drawn = drawCard(ap);
-  state.log.push(`【ドロー】${ap.nameJa}はカードを${drawn}枚引いた`);
+  state.log.push(`【ドロー】${ap.nameJa}はカードを${drawn}枚引いた（呪力: ${ap.cursedEnergy}/${ap.maxCursedEnergy}）`);
 
   state.phase = 'MAIN';
 }
 
-/**
- * カードを使用する
- */
 export function playCard(
   state: GameState,
   actorId: 'player' | 'ai',
@@ -170,45 +171,54 @@ export function playCard(
 
   const card = actor.hand[cardIndex];
 
-  // Cost check
   if (actor.cursedEnergy < card.cost) {
     return { success: false, message: `呪力が足りません（必要: ${card.cost}、現在: ${actor.cursedEnergy}）` };
   }
 
-  // Pay cost
   actor.cursedEnergy -= card.cost;
-
-  // Remove from hand
   actor.hand.splice(cardIndex, 1);
 
-  // Apply effect
+  // Sorcerer: place on board
+  if (card.type === CardType.SORCERER) {
+    if (actor.board.length < actor.maxBoardSize) {
+      const unit: BoardUnit = {
+        card,
+        instanceId: card.instanceId + '_unit',
+        currentHp: card.hp > 0 ? card.hp : 10,
+        attack: card.power > 0 ? card.power : 1,
+        canAttack: false,
+        isExhausted: false,
+      };
+      actor.board.push(unit);
+      const msg = `${card.nameJa}をフィールドに召喚！（攻:${unit.attack} HP:${unit.currentHp}）`;
+      state.log.push(`【${actor.nameJa}】${msg}`);
+      checkWinCondition(state);
+      return { success: true, message: msg };
+    } else {
+      // Board full: apply card effect as technique
+      const result = applyEffect(state, actor, target, card);
+      state.log.push(`【${actor.nameJa}】フィールド満員！${card.nameJa}の効果発動 ${result}`);
+      actor.discardPile.push(card);
+      checkWinCondition(state);
+      return { success: true, message: result };
+    }
+  }
+
   let result = applyEffect(state, actor, target, card);
 
-  // Domain expansion bonus: also draw 2 cards
+  // Domain expansion bonus draw
   if (card.type === CardType.DOMAIN) {
     const drawn = drawCard(actor, 2);
     if (drawn > 0) result += `、${drawn}枚ドロー`;
   }
 
   state.log.push(`【${actor.nameJa}】${card.nameJa}を使用！ ${result}`);
-
-  // Move to discard
   actor.discardPile.push(card);
 
-  // If sorcerer card, set as active
-  if (card.type === CardType.SORCERER) {
-    actor.activeSorcerer = card;
-  }
-
-  // Check win condition
   checkWinCondition(state);
-
   return { success: true, message: result };
 }
 
-/**
- * カード効果を適用する
- */
 function applyEffect(
   state: GameState,
   actor: PlayerState,
@@ -216,7 +226,8 @@ function applyEffect(
   card: DeckCard
 ): string {
   const effect = card.effect;
-  let effectValue = effect.value + actor.attackBuff;
+  const effectValue = effect.value + actor.attackBuff;
+  let result = '';
 
   switch (effect.type) {
     case EffectType.DAMAGE: {
@@ -225,72 +236,223 @@ function applyEffect(
       target.shield = Math.max(0, target.shield - effectValue);
       target.hp = Math.max(0, target.hp - dmg);
       actor.attackBuff = 0;
-      if (shieldUsed > 0) {
-        return `${target.nameJa}に${dmg}ダメージ（シールド${shieldUsed}吸収）`;
-      }
-      return `${target.nameJa}に${dmg}ダメージ！`;
+      result = shieldUsed > 0
+        ? `${target.nameJa}に${dmg}ダメージ（シールド${shieldUsed}吸収）`
+        : `${target.nameJa}に${dmg}ダメージ！`;
+      break;
     }
 
     case EffectType.DOUBLE_DAMAGE: {
-      const baseDmg = effect.value + actor.attackBuff;
-      const dmg2 = Math.max(0, baseDmg - target.shield);
-      target.shield = Math.max(0, target.shield - baseDmg);
+      const base = effect.value + actor.attackBuff;
+      const dmg2 = Math.max(0, base - target.shield);
+      target.shield = Math.max(0, target.shield - base);
       target.hp = Math.max(0, target.hp - dmg2);
       actor.attackBuff = 0;
-      return `黒閃！${target.nameJa}に${dmg2}ダメージ！！`;
+      result = `黒閃！${target.nameJa}に${dmg2}ダメージ！！`;
+      break;
+    }
+
+    case EffectType.AOE_DAMAGE: {
+      const units = [...target.board];
+      let removed = 0;
+      for (const unit of units) {
+        unit.currentHp -= effect.value;
+        if (unit.currentHp <= 0) {
+          const idx = target.board.findIndex(u => u.instanceId === unit.instanceId);
+          if (idx !== -1) {
+            target.board.splice(idx, 1);
+            target.discardPile.push(unit.card);
+            removed++;
+          }
+        }
+      }
+      actor.attackBuff = 0;
+      result = `全体に${effect.value}ダメージ（${units.length}体攻撃、${removed}体撃破）`;
+      break;
     }
 
     case EffectType.HEAL: {
       const healed = Math.min(effect.value, actor.maxHp - actor.hp);
       actor.hp += healed;
-      return `${actor.nameJa}のHPが${healed}回復（${actor.hp}/${actor.maxHp}）`;
+      result = `${actor.nameJa}のHPが${healed}回復（${actor.hp}/${actor.maxHp}）`;
+      break;
     }
 
     case EffectType.DRAW: {
       const drawn = drawCard(actor, effect.value);
-      return `カードを${drawn}枚ドロー`;
+      result = `カードを${drawn}枚ドロー`;
+      break;
     }
 
     case EffectType.ENERGY_GAIN: {
       const gain = Math.min(effect.value, actor.maxCursedEnergy - actor.cursedEnergy);
       actor.cursedEnergy += gain;
-      return `呪力が${gain}増加（${actor.cursedEnergy}/${actor.maxCursedEnergy}）`;
+      result = `呪力が${gain}増加（${actor.cursedEnergy}/${actor.maxCursedEnergy}）`;
+      break;
     }
 
     case EffectType.SHIELD: {
       actor.shield += effect.value;
-      return `シールド${effect.value}を獲得（合計: ${actor.shield}）`;
+      result = `シールド${effect.value}を獲得（合計: ${actor.shield}）`;
+      break;
     }
 
     case EffectType.BUFF_ATTACK: {
       actor.attackBuff += effect.value;
-      return `次の攻撃に+${effect.value}ダメージ`;
+      result = `次の攻撃に+${effect.value}ダメージ`;
+      break;
     }
 
     case EffectType.DEBUFF: {
       target.attackBuff = Math.max(0, target.attackBuff - effect.value);
-      return `${target.nameJa}の攻撃力を${effect.value}下げた`;
+      result = `${target.nameJa}の攻撃力を${effect.value}下げた`;
+      break;
     }
 
     default:
-      return '効果を適用した';
+      result = '効果を適用した';
+  }
+
+  // Self-damage for BINDING_VOW cards
+  if (card.selfDamage && card.selfDamage > 0) {
+    actor.hp = Math.max(0, actor.hp - card.selfDamage);
+    result += `（自分${card.selfDamage}ダメージ）`;
+  }
+
+  return result;
+}
+
+function applyHeroPower(
+  state: GameState,
+  actor: PlayerState,
+  target: PlayerState,
+  effect: { type: EffectType; value: number }
+): string {
+  switch (effect.type) {
+    case EffectType.DAMAGE: {
+      const dmg = Math.max(0, effect.value - target.shield);
+      target.shield = Math.max(0, target.shield - effect.value);
+      target.hp = Math.max(0, target.hp - dmg);
+      return `${target.nameJa}に${dmg}ダメージ`;
+    }
+    case EffectType.DRAW: {
+      const drawn = drawCard(actor, effect.value);
+      return `カード${drawn}枚ドロー`;
+    }
+    case EffectType.AOE_DAMAGE: {
+      const units = [...target.board];
+      let removed = 0;
+      for (const unit of units) {
+        unit.currentHp -= effect.value;
+        if (unit.currentHp <= 0) {
+          const idx = target.board.findIndex(u => u.instanceId === unit.instanceId);
+          if (idx !== -1) {
+            target.board.splice(idx, 1);
+            target.discardPile.push(unit.card);
+            removed++;
+          }
+        }
+      }
+      return `全体に${effect.value}ダメージ（${removed}体撃破）`;
+    }
+    case EffectType.SHIELD: {
+      actor.shield += effect.value;
+      return `シールド${effect.value}獲得`;
+    }
+    default:
+      return '効果発動';
   }
 }
 
-/**
- * ターン終了処理
- */
+export function attackWithUnit(
+  state: GameState,
+  actorId: 'player' | 'ai',
+  attackerInstanceId: string,
+  targetInstanceId: string | 'hero'
+): { success: boolean; message: string } {
+  const actor = state.players[actorId];
+  const target = state.players[actorId === 'player' ? 'ai' : 'player'];
+
+  const attacker = actor.board.find(u => u.instanceId === attackerInstanceId);
+  if (!attacker) return { success: false, message: '攻撃ユニットが見つかりません' };
+  if (!attacker.canAttack) return { success: false, message: 'このユニットは攻撃できません' };
+
+  attacker.canAttack = false;
+  attacker.isExhausted = true;
+
+  if (targetInstanceId === 'hero') {
+    const dmg = Math.max(0, attacker.attack - target.shield);
+    target.shield = Math.max(0, target.shield - attacker.attack);
+    target.hp = Math.max(0, target.hp - dmg);
+    const msg = `${attacker.card.nameJa}が${target.nameJa}に${dmg}ダメージ！`;
+    state.log.push(`【${actor.nameJa}】${msg}`);
+    checkWinCondition(state);
+    return { success: true, message: msg };
+  } else {
+    const enemyUnit = target.board.find(u => u.instanceId === targetInstanceId);
+    if (!enemyUnit) return { success: false, message: '対象ユニットが見つかりません' };
+
+    enemyUnit.currentHp -= attacker.attack;
+    attacker.currentHp -= enemyUnit.attack;
+
+    let msg = `${attacker.card.nameJa}（攻:${attacker.attack}）vs ${enemyUnit.card.nameJa}（攻:${enemyUnit.attack}）`;
+
+    // Remove dead units
+    if (enemyUnit.currentHp <= 0) {
+      const idx = target.board.findIndex(u => u.instanceId === enemyUnit.instanceId);
+      if (idx !== -1) {
+        target.board.splice(idx, 1);
+        target.discardPile.push(enemyUnit.card);
+        msg += `、${enemyUnit.card.nameJa}を撃破`;
+      }
+    }
+    if (attacker.currentHp <= 0) {
+      const idx = actor.board.findIndex(u => u.instanceId === attacker.instanceId);
+      if (idx !== -1) {
+        actor.board.splice(idx, 1);
+        actor.discardPile.push(attacker.card);
+        msg += `、${attacker.card.nameJa}が倒れた`;
+      }
+    }
+
+    state.log.push(`【${actor.nameJa}】${msg}`);
+    checkWinCondition(state);
+    return { success: true, message: msg };
+  }
+}
+
+export function useHeroPower(
+  state: GameState,
+  actorId: 'player' | 'ai'
+): { success: boolean; message: string } {
+  const actor = state.players[actorId];
+  const target = state.players[actorId === 'player' ? 'ai' : 'player'];
+
+  if (actor.heroPowerUsed) return { success: false, message: 'ヒーローパワーは既に使用済みです' };
+  if (actor.cursedEnergy < 2) return { success: false, message: '呪力が不足しています（必要: 2）' };
+
+  const power = HERO_POWERS[actor.heroId];
+  if (!power) return { success: false, message: 'ヒーローパワーが見つかりません' };
+
+  actor.cursedEnergy -= 2;
+  actor.heroPowerUsed = true;
+
+  const result = applyHeroPower(state, actor, target, power.effect);
+  state.log.push(`【${actor.nameJa}】ヒーローパワー「${power.nameJa}」発動！ ${result}`);
+
+  checkWinCondition(state);
+  return { success: true, message: result };
+}
+
 export function endTurn(state: GameState): void {
   const current = state.players[state.activePlayer];
 
-  // Shield decays a bit at end of turn (not full removal)
   if (current.shield > 0) {
     current.shield = Math.max(0, current.shield - 2);
   }
 
   state.phase = 'END';
 
-  // Switch active player
   const next = state.activePlayer === 'player' ? 'ai' : 'player';
   state.activePlayer = next;
   state.turn++;
@@ -298,13 +460,9 @@ export function endTurn(state: GameState): void {
   const nextPlayer = state.players[next];
   state.log.push(`--- ターン${state.turn}: ${nextPlayer.nameJa}のターン ---`);
 
-  // Start next turn
   startTurn(state);
 }
 
-/**
- * 勝利条件チェック
- */
 function checkWinCondition(state: GameState): void {
   if (state.players.player.hp <= 0) {
     state.winner = 'ai';
@@ -317,44 +475,37 @@ function checkWinCondition(state: GameState): void {
   }
 }
 
-/**
- * AIのターンを実行する
- */
 export function executeAITurn(state: GameState): string[] {
   const ai = state.players.ai;
+  const player = state.players.player;
   const actions: string[] = [];
 
-  // Simple AI: play cards by priority
-  // 1. If low HP, try to heal
-  // 2. If high energy, play domain
-  // 3. Play highest damage card affordable
-  // 4. Gain energy if needed
-  // 5. End turn
-
   let iterations = 0;
-  while (iterations < 10) {
+  while (iterations < 15) {
     iterations++;
-    const currentPhase: GamePhase = state.phase;
-    if (currentPhase !== 'MAIN') break;
-    if (ai.cursedEnergy <= 0 || ai.hand.length === 0) break;
+    if (state.phase !== 'MAIN') break;
+    if (ai.cursedEnergy <= 0 && ai.hand.length === 0) break;
 
     const playable = ai.hand.filter(c => c.cost <= ai.cursedEnergy);
     if (playable.length === 0) break;
 
-    // Sort by priority
     const sorted = [...playable].sort((a, b) => {
-      // Prioritize heal if low HP
-      if (ai.hp <= 10) {
+      // Heal if low HP
+      if (ai.hp <= 12) {
         if (a.effect.type === EffectType.HEAL) return -1;
         if (b.effect.type === EffectType.HEAL) return 1;
       }
-      // Prioritize domain if available
+      // Sorcerers on empty board
+      if (ai.board.length < ai.maxBoardSize) {
+        if (a.type === CardType.SORCERER) return -1;
+        if (b.type === CardType.SORCERER) return 1;
+      }
+      // Domain
       if (a.type === CardType.DOMAIN) return -1;
       if (b.type === CardType.DOMAIN) return 1;
-      // Prioritize damage
+      // Damage
       if (a.effect.type === EffectType.DAMAGE || a.effect.type === EffectType.DOUBLE_DAMAGE) return -1;
       if (b.effect.type === EffectType.DAMAGE || b.effect.type === EffectType.DOUBLE_DAMAGE) return 1;
-      // Then buff/shield
       return b.cost - a.cost;
     });
 
@@ -364,6 +515,38 @@ export function executeAITurn(state: GameState): string[] {
       actions.push(result.message);
     } else {
       break;
+    }
+  }
+
+  // Attack with board units
+  for (const unit of [...ai.board]) {
+    if (state.phase === 'GAME_OVER') break;
+    if (!unit.canAttack) continue;
+
+    if (player.board.length > 0) {
+      // Attack weakest enemy unit
+      const weakest = player.board.reduce((min, u) => u.currentHp < min.currentHp ? u : min, player.board[0]);
+      const result = attackWithUnit(state, 'ai', unit.instanceId, weakest.instanceId);
+      actions.push(result.message);
+    } else {
+      const result = attackWithUnit(state, 'ai', unit.instanceId, 'hero');
+      actions.push(result.message);
+    }
+  }
+
+  // Use hero power if beneficial
+  if (state.phase !== 'GAME_OVER' && !ai.heroPowerUsed && ai.cursedEnergy >= 2) {
+    const power = HERO_POWERS[ai.heroId];
+    if (power) {
+      const shouldUse =
+        (power.effect.type === EffectType.DAMAGE && player.hp <= 20) ||
+        (power.effect.type === EffectType.AOE_DAMAGE && player.board.length > 0) ||
+        (power.effect.type === EffectType.SHIELD && ai.hp <= 15) ||
+        (power.effect.type === EffectType.DRAW && ai.hand.length <= 2);
+      if (shouldUse) {
+        const result = useHeroPower(state, 'ai');
+        actions.push(result.message);
+      }
     }
   }
 

@@ -41,6 +41,10 @@ export function cardTypeLabel(type: string): { ja: string; furigana: string; col
       return { ja: '術式', furigana: 'じゅつしき', color: '#00BFFF' };
     case 'DOMAIN':
       return { ja: '領域展開', furigana: 'りょういきてんかい', color: '#FF4500' };
+    case 'BINDING_VOW':
+      return { ja: '縛り', furigana: 'しばり', color: '#FF69B4' };
+    case 'CURSED_OBJECT':
+      return { ja: '呪具', furigana: 'じゅぐ', color: '#9370DB' };
     default:
       return { ja: '不明', furigana: 'ふめい', color: '#FFFFFF' };
   }

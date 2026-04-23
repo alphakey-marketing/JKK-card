@@ -121,8 +121,7 @@ export class GameOverScene extends Phaser.Scene {
 
     this.createButton(cx + 110, height - 90, '同じキャラで再戦', 'おなじきゃらでさいせん', 0x222244, 0x4444aa, () => {
       // Restart with same player choice
-      const playerName = players.player.nameJa;
-      const choice = playerName === '虎杖悠仁' ? 'yuji' : 'megumi';
+      const choice = (players.player.heroId ?? 'yuji') as 'yuji' | 'megumi' | 'nobara' | 'gojo';
       this.cameras.main.fade(500, 0, 0, 0, false, (_: unknown, progress: number) => {
         if (progress === 1) {
           this.scene.start('GameScene', { playerChoice: choice });

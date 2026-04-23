@@ -35,11 +35,15 @@ export class CardView extends Phaser.GameObjects.Container {
       SORCERER: 0x1a1a3a,
       TECHNIQUE: 0x0a2a1a,
       DOMAIN: 0x2a0a0a,
+      BINDING_VOW: 0x2a0a18,
+      CURSED_OBJECT: 0x1a0a2a,
     };
     const borderColors: Record<string, number> = {
       SORCERER: 0xFFD700,
       TECHNIQUE: 0x00BFFF,
       DOMAIN: 0xFF4500,
+      BINDING_VOW: 0xFF69B4,
+      CURSED_OBJECT: 0x9370DB,
     };
 
     const bgColor = bgColors[card.type] ?? 0x1a1a1a;
@@ -178,6 +182,8 @@ export class CardView extends Phaser.GameObjects.Container {
         SORCERER: 0xFFD700,
         TECHNIQUE: 0x00BFFF,
         DOMAIN: 0xFF4500,
+        BINDING_VOW: 0xFF69B4,
+        CURSED_OBJECT: 0x9370DB,
       };
       this.drawBorder(borderColors[this.card.type] ?? 0x888888, 2);
       if (this.glowTween) {

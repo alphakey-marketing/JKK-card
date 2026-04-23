@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PlayerState } from '../game/GameState';
+import { HERO_POWERS } from '../data/cards';
 
 /**
  * プレイヤーのステータスバー表示
@@ -16,8 +17,9 @@ export class StatusBar extends Phaser.GameObjects.Container {
   private shieldText: Phaser.GameObjects.Text;
   private deckText: Phaser.GameObjects.Text;
   private handText: Phaser.GameObjects.Text;
+  private heroPowerText: Phaser.GameObjects.Text;
 
-  private readonly BAR_WIDTH = 180;
+  private readonly BAR_WIDTH = 160;
   private readonly BAR_HEIGHT = 14;
 
   constructor(scene: Phaser.Scene, x: number, y: number, player: PlayerState) {
@@ -111,18 +113,27 @@ export class StatusBar extends Phaser.GameObjects.Container {
     });
     this.add(this.handText);
 
+    // Hero power indicator
+    const power = HERO_POWERS[player.heroId];
+    const powerName = power ? power.nameJa : '—';
+    this.heroPowerText = scene.add.text(0, 90, `必:${powerName}(2)`, {
+      fontSize: '10px',
+      color: '#cc88ff',
+      fontFamily: "'Noto Serif JP', serif",
+    });
+    this.add(this.heroPowerText);
+
     scene.add.existing(this);
     this.update(player);
   }
 
   update(player: PlayerState): void {
     const hpRatio = Math.max(0, player.hp / player.maxHp);
-    const energyRatio = Math.max(0, player.cursedEnergy / player.maxCursedEnergy);
+    const energyRatio = Math.max(0, player.cursedEnergy / Math.max(1, player.maxCursedEnergy));
 
     this.hpBar.setScale(hpRatio, 1);
     this.hpText.setText(`${player.hp}/${player.maxHp}`);
 
-    // Color HP bar based on amount
     if (hpRatio > 0.5) {
       this.hpBar.setFillStyle(0x33cc33);
     } else if (hpRatio > 0.25) {
@@ -137,5 +148,19 @@ export class StatusBar extends Phaser.GameObjects.Container {
     this.shieldText.setText(`🛡 ${player.shield}`);
     this.deckText.setText(`デッキ:${player.deck.length}`);
     this.handText.setText(`手札:${player.hand.length}`);
+
+    // Hero power availability
+    const power = HERO_POWERS[player.heroId];
+    const powerName = power ? power.nameJa : '—';
+    if (player.heroPowerUsed) {
+      this.heroPowerText.setText(`必:${powerName}（使用済）`);
+      this.heroPowerText.setColor('#666666');
+    } else if (player.cursedEnergy >= 2) {
+      this.heroPowerText.setText(`必:${powerName}(2) ✓`);
+      this.heroPowerText.setColor('#cc88ff');
+    } else {
+      this.heroPowerText.setText(`必:${powerName}(2)`);
+      this.heroPowerText.setColor('#886699');
+    }
   }
 }

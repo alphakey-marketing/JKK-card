@@ -64,7 +64,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // Furigana
     this.furiText = scene.add.text(0, -hh + 5, unit.card.nameFurigana, {
-      fontSize: '7px',
+      fontSize: '9px',
       color: '#aaaaaa',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -73,7 +73,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // Name
     this.nameText = scene.add.text(0, -hh + 14, unit.card.nameJa, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#ffffff',
       fontFamily: "'Noto Serif JP', serif",
       fontStyle: 'bold',
@@ -89,8 +89,8 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     this.add(div);
 
     // Card type badge
-    const typeLabel = scene.add.text(0, -hh + 49, this.getTypeLabel(unit.card.type as string), {
-      fontSize: '8px',
+    const typeLabel = scene.add.text(0, -hh + 49, this.getTypeLabel(unit.card.type as string, unit.hasTaunt), {
+      fontSize: '10px',
       color: '#aaaaaa',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -99,7 +99,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // Attack (bottom-left)
     this.attackText = scene.add.text(-hw + 6, hh - 8, String(unit.attack), {
-      fontSize: '16px',
+      fontSize: '18px',
       color: '#ff9900',
       fontFamily: "'Noto Sans JP', monospace",
       fontStyle: 'bold',
@@ -109,7 +109,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // Attack label
     const atkLabel = scene.add.text(-hw + 6, hh - 22, '攻', {
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#ff9900',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -118,7 +118,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // HP (bottom-right)
     this.hpText = scene.add.text(hw - 6, hh - 8, String(unit.currentHp), {
-      fontSize: '16px',
+      fontSize: '18px',
       color: '#00ff88',
       fontFamily: "'Noto Sans JP', monospace",
       fontStyle: 'bold',
@@ -128,7 +128,7 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
 
     // HP label
     const hpLabel = scene.add.text(hw - 6, hh - 22, 'HP', {
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#00ff88',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -151,10 +151,11 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     this.updateStats();
   }
 
-  private getTypeLabel(type: string): string {
+  private getTypeLabel(type: string, hasTaunt = false): string {
+    const tauntStr = hasTaunt ? '【挑発】' : '';
     switch (type) {
-      case 'SORCERER': return '呪術師';
-      default: return '';
+      case 'SORCERER': return `呪術師${tauntStr}`;
+      default: return tauntStr;
     }
   }
 

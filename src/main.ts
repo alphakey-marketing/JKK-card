@@ -2,13 +2,14 @@ import Phaser from 'phaser';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { DeckBuilderScene } from './scenes/DeckBuilderScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 900,
   height: 600,
   backgroundColor: '#08080f',
-  scene: [MenuScene, GameScene, GameOverScene],
+  scene: [MenuScene, GameScene, GameOverScene, DeckBuilderScene],
   parent: document.body,
   scale: {
     mode: Phaser.Scale.FIT,
@@ -17,6 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
   render: {
     antialias: true,
     pixelArt: false,
+    resolution: window.devicePixelRatio,
   },
 };
 

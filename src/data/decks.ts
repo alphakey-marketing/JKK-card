@@ -85,6 +85,46 @@ export const GOJO_DECK_IDS: string[] = [
   'cursed_technique_lapse', 'cursed_technique_lapse',
 ];
 
+// ========== 七海建人デッキ (30枚) ==========
+export const NANAMI_DECK_IDS: string[] = [
+  'nanami_base', 'nanami_base',
+  'ratio_technique', 'ratio_technique',
+  'mandatory_overtime', 'mandatory_overtime',
+  'black_divinity',
+  'nanami_shield', 'nanami_shield',
+  'nanami_draw', 'nanami_draw',
+  'curse_worker', 'curse_worker',
+  'nanami_buff', 'nanami_buff',
+  'blunt_force', 'blunt_force',
+  'corporate_sorrow',
+  'precise_strike', 'precise_strike',
+  'nanami_heal', 'nanami_heal',
+  'overtime_kill', 'overtime_kill',
+  'concrete_smash', 'concrete_smash',
+  'nanami_energy', 'nanami_energy',
+  'awakened_nanami', 'awakened_nanami',
+];
+
+// ========== 狗巻棘デッキ (30枚) ==========
+export const TOGE_DECK_IDS: string[] = [
+  'toge_base', 'toge_base',
+  'serpent_speech', 'serpent_speech',
+  'blast_speech', 'blast_speech',
+  'stop_speech', 'stop_speech',
+  'tsukamoto_salmon', 'tsukamoto_salmon',
+  'dont_move_speech', 'dont_move_speech',
+  'sleep_speech', 'sleep_speech',
+  'explode_all', 'explode_all',
+  'granite_rock', 'granite_rock',
+  'word_domain',
+  'regurgitate_speech', 'regurgitate_speech',
+  'inumaki_heal', 'inumaki_heal',
+  'word_bind', 'word_bind',
+  'cursed_word', 'cursed_word',
+  'word_barrier', 'word_barrier',
+  'transcendent_voice',
+];
+
 /**
  * IDリストからカードデータ配列を作成（ユニークIDを付与）
  */

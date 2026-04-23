@@ -4,7 +4,7 @@ import {
   initGame,
   playCard,
   endTurn,
-  executeAITurn,
+  executeAIStep,
   startTurn,
   attackWithUnit,
   useHeroPower,
@@ -52,17 +52,17 @@ export class GameScene extends Phaser.Scene {
   // Enemy hero clickable area
   private enemyHeroArea!: Phaser.GameObjects.Rectangle;
 
-  // Layout constants
-  private readonly RIGHT_PANEL_X = 715;
-  private readonly AI_BOARD_Y = 145;
-  private readonly PLAYER_BOARD_Y = 268;
-  private readonly HAND_Y = 420;
+  // Layout constants (computed in create())
+  private RIGHT_PANEL_X = 715;
+  private AI_BOARD_Y = 145;
+  private PLAYER_BOARD_Y = 268;
+  private HAND_Y = 420;
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
-  init(data: { playerChoice: 'yuji' | 'megumi' | 'nobara' | 'gojo' }): void {
+  init(data: { playerChoice: 'yuji' | 'megumi' | 'nobara' | 'gojo' | 'nanami' | 'toge' }): void {
     this.gameState = initGame(data.playerChoice ?? 'yuji');
     this.interactionMode = 'IDLE';
     this.selectedAttacker = null;
@@ -72,11 +72,15 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+    this.RIGHT_PANEL_X = Math.round(width * 0.795);
+    this.AI_BOARD_Y = Math.round(height * 0.285);
+    this.PLAYER_BOARD_Y = Math.round(height * 0.525);
+    this.HAND_Y = Math.round(height * 0.822);
 
     this.createBackground(width, height);
 
-    // ── AI Status Bar (top) ─────────────────────────────────────────
-    this.aiStatusBar = new StatusBar(this, 10, 5, this.gameState.players.ai);
+    // ── AI Status Bar (right panel, top) ─────────────────────────────
+    this.aiStatusBar = new StatusBar(this, this.RIGHT_PANEL_X + 8, 5, this.gameState.players.ai);
 
     // Enemy hero clickable area (for direct attacks)
     this.enemyHeroArea = this.add.rectangle(this.RIGHT_PANEL_X / 2, 42, this.RIGHT_PANEL_X - 20, 84, 0xffffff, 0);
@@ -180,15 +184,15 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(this.RIGHT_PANEL_X + (width - this.RIGHT_PANEL_X) / 2, height / 2, width - this.RIGHT_PANEL_X, height, 0x050510, 0.95);
 
     const logX = this.RIGHT_PANEL_X + 8;
-    this.add.text(logX, 8, 'せんとうきろく', {
-      fontSize: '8px', color: '#555555', fontFamily: "'Noto Serif JP', serif",
+    this.add.text(logX, 116, 'せんとうきろく', {
+      fontSize: '9px', color: '#555555', fontFamily: "'Noto Serif JP', serif",
     });
-    this.add.text(logX, 18, '戦闘記録', {
-      fontSize: '11px', color: '#777777', fontFamily: "'Noto Serif JP', serif",
+    this.add.text(logX, 128, '戦闘記録', {
+      fontSize: '12px', color: '#777777', fontFamily: "'Noto Serif JP', serif",
     });
 
-    this.logText = this.add.text(logX, 34, '', {
-      fontSize: '9px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
+    this.logText = this.add.text(logX, 144, '', {
+      fontSize: '11px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
       wordWrap: { width: width - this.RIGHT_PANEL_X - 16 },
       lineSpacing: 2,
     });
@@ -199,8 +203,8 @@ export class GameScene extends Phaser.Scene {
       backgroundColor: '#000000cc', padding: { x: 10, y: 6 },
     }).setOrigin(0.5, 0.5).setDepth(50);
 
-    // Player status bar (bottom-left corner of right panel area)
-    this.playerStatusBar = new StatusBar(this, 10, height - 185, this.gameState.players.player);
+    // Player status bar (right panel, bottom)
+    this.playerStatusBar = new StatusBar(this, this.RIGHT_PANEL_X + 8, height - 185, this.gameState.players.player);
 
     // Initial render
     this.renderAIHand();
@@ -406,6 +410,20 @@ export class GameScene extends Phaser.Scene {
       cardView.setPlayable(isPlayerTurn && isMainPhase && card.cost <= playerEnergy);
 
       cardView.on('pointerdown', () => this.handleCardClick(cardView));
+      const capturedCard = card;
+      let pressTimer: Phaser.Time.TimerEvent | null = null;
+      cardView.on('pointerdown', () => {
+        pressTimer = this.time.delayedCall(450, () => {
+          pressTimer = null;
+          this.showCardPreview(capturedCard);
+        });
+      });
+      cardView.on('pointerup', () => {
+        if (pressTimer) {
+          pressTimer.remove();
+          pressTimer = null;
+        }
+      });
       cardView.on('pointerover', () => {
         if (!cardView.isSelected) {
           this.tweens.add({ targets: cardView, y: cardY - 12, duration: 150 });
@@ -518,17 +536,31 @@ export class GameScene extends Phaser.Scene {
     this.heroPowerBtn.disableInteractive();
 
     this.time.delayedCall(900, () => {
-      this.executeAITurnSteps();
+      this.executeAIStepLoop();
     });
   }
 
-  private executeAITurnSteps(): void {
-    executeAITurn(this.gameState);
+  private executeAIStepLoop(maxSteps = 20): void {
+    if (maxSteps <= 0 || this.gameState.phase !== 'MAIN') {
+      this.finishAITurn();
+      return;
+    }
+    const action = executeAIStep(this.gameState);
     this.renderAIHand();
     this.renderBoard('ai');
     this.renderBoard('player');
     this.updateUI();
 
+    if (action !== null && this.gameState.phase !== 'GAME_OVER') {
+      this.time.delayedCall(600, () => {
+        this.executeAIStepLoop(maxSteps - 1);
+      });
+    } else {
+      this.finishAITurn();
+    }
+  }
+
+  private finishAITurn(): void {
     if (this.gameState.phase === 'GAME_OVER') {
       this.isProcessingAI = false;
       this.aiThinkingText.setText('');
@@ -536,7 +568,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.time.delayedCall(1200, () => {
+    this.time.delayedCall(800, () => {
       endTurn(this.gameState);
       this.isProcessingAI = false;
       this.aiThinkingText.setText('');
@@ -565,7 +597,7 @@ export class GameScene extends Phaser.Scene {
     this.playerStatusBar.update(state.players.player);
     this.aiStatusBar.update(state.players.ai);
 
-    const logLines = state.log.slice(-20);
+    const logLines = state.log.slice(-10);
     this.logText.setText(logLines.join('\n'));
 
     const isPlayerTurn = state.activePlayer === 'player';
@@ -574,6 +606,7 @@ export class GameScene extends Phaser.Scene {
 
     this.handCardViews.forEach(cv => {
       cv.setPlayable(isPlayerTurn && isMainPhase && cv.card.cost <= playerEnergy);
+      cv.setAffordable(cv.card.cost <= playerEnergy);
     });
 
     // Update board unit attack-ready indicators
@@ -649,6 +682,27 @@ export class GameScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => msg.destroy(),
     });
+  }
+
+  private showCardPreview(card: DeckCard): void {
+    const { width, height } = this.scale;
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75)
+      .setDepth(300).setInteractive();
+
+    const previewCard = new CardView(this, width / 2, height / 2, card);
+    previewCard.setDepth(301).setScale(2.0);
+
+    const closeText = this.add.text(width / 2, height / 2 + CARD_HEIGHT * 1.1, 'タップして閉じる', {
+      fontSize: '14px', color: '#ffffff', fontFamily: "'Noto Serif JP', serif",
+      backgroundColor: '#000000bb', padding: { x: 8, y: 4 },
+    }).setOrigin(0.5, 0).setDepth(302);
+
+    const closePreview = (): void => {
+      overlay.destroy();
+      previewCard.destroy();
+      closeText.destroy();
+    };
+    overlay.on('pointerdown', closePreview);
   }
 
   private checkGameOver(): void {

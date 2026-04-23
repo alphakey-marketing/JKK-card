@@ -27,7 +27,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
 
     // Name with furigana
     this.nameFuriText = scene.add.text(0, 0, player.nameFurigana, {
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#aaaaaa',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -35,7 +35,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
     this.add(this.nameFuriText);
 
     this.nameMainText = scene.add.text(0, 12, player.nameJa, {
-      fontSize: '18px',
+      fontSize: '20px',
       color: '#ffffff',
       fontFamily: "'Noto Serif JP', serif",
       fontStyle: 'bold',
@@ -45,7 +45,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
 
     // HP Bar
     const hpLabel = scene.add.text(0, 36, 'HP', {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#ff6666',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -60,7 +60,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
     this.add(this.hpBar);
 
     this.hpText = scene.add.text(28 + this.BAR_WIDTH / 2, 42, `${player.hp}/${player.maxHp}`, {
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#ffffff',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -69,7 +69,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
 
     // Cursed Energy Bar
     const energyLabel = scene.add.text(0, 54, '呪力', {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#6699ff',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -84,7 +84,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
     this.add(this.energyBar);
 
     this.energyText = scene.add.text(28 + this.BAR_WIDTH / 2, 60, `${player.cursedEnergy}/${player.maxCursedEnergy}`, {
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#ffffff',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -93,21 +93,21 @@ export class StatusBar extends Phaser.GameObjects.Container {
 
     // Shield & Deck info
     this.shieldText = scene.add.text(0, 74, `🛡 ${player.shield}`, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#88ffff',
       fontFamily: "'Noto Sans JP', monospace",
     });
     this.add(this.shieldText);
 
     this.deckText = scene.add.text(60, 74, `デッキ:${player.deck.length}`, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#aaaaaa',
       fontFamily: "'Noto Sans JP', monospace",
     });
     this.add(this.deckText);
 
     this.handText = scene.add.text(140, 74, `手札:${player.hand.length}`, {
-      fontSize: '11px',
+      fontSize: '13px',
       color: '#aaaaaa',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -117,7 +117,7 @@ export class StatusBar extends Phaser.GameObjects.Container {
     const power = HERO_POWERS[player.heroId];
     const powerName = power ? power.nameJa : '—';
     this.heroPowerText = scene.add.text(0, 90, `必:${powerName}(2)`, {
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#cc88ff',
       fontFamily: "'Noto Serif JP', serif",
     });

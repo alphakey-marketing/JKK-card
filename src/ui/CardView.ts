@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { DeckCard } from '../data/decks';
-import { CardType } from '../data/cards';
+import { CardType, Keyword } from '../data/cards';
 import { cardTypeLabel, wrapText } from '../utils/furigana';
 
 export const CARD_WIDTH = 110;
@@ -64,7 +64,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // Type badge
     this.typeText = scene.add.text(-halfW + 4, -halfH + 4, typeInfo.ja, {
-      fontSize: '9px',
+      fontSize: '11px',
       color: typeInfo.color,
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -72,7 +72,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // Cost badge (top right)
     this.costText = scene.add.text(halfW - 4, -halfH + 4, `呪:${card.cost}`, {
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#FFCC00',
       fontFamily: "'Noto Sans JP', monospace",
     });
@@ -81,7 +81,7 @@ export class CardView extends Phaser.GameObjects.Container {
 
     // Card name (furigana style: small text above main)
     this.furiText = scene.add.text(0, -halfH + 20, card.nameFurigana, {
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#cccccc',
       fontFamily: "'Noto Serif JP', serif",
     });
@@ -89,7 +89,7 @@ export class CardView extends Phaser.GameObjects.Container {
     this.add(this.furiText);
 
     this.nameText = scene.add.text(0, -halfH + 30, card.nameJa, {
-      fontSize: '14px',
+      fontSize: '16px',
       color: '#ffffff',
       fontFamily: "'Noto Serif JP', serif",
       fontStyle: 'bold',
@@ -107,14 +107,14 @@ export class CardView extends Phaser.GameObjects.Container {
     const statsY = -halfH + 58;
     if (card.type === CardType.SORCERER) {
       this.powerText = scene.add.text(0, statsY, `攻:${card.power}  防:${card.defense}  HP:${card.hp}`, {
-        fontSize: '9px',
+        fontSize: '11px',
         color: '#aaffaa',
         fontFamily: "'Noto Sans JP', monospace",
       });
       this.powerText.setOrigin(0.5, 0);
     } else {
       this.powerText = scene.add.text(0, statsY, `威力: ${card.effect.value}`, {
-        fontSize: '10px',
+        fontSize: '12px',
         color: '#aaffaa',
         fontFamily: "'Noto Sans JP', monospace",
       });
@@ -123,9 +123,10 @@ export class CardView extends Phaser.GameObjects.Container {
     this.add(this.powerText);
 
     // Effect description
-    const effectLines = wrapText(card.effect.descriptionJa, 10);
+    const wrapWidth = Math.floor((CARD_WIDTH - 10) / 9);
+    const effectLines = wrapText(card.effect.descriptionJa, wrapWidth);
     this.effectText = scene.add.text(0, statsY + 18, effectLines.join('\n'), {
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#ddddff',
       fontFamily: "'Noto Serif JP', serif",
       align: 'center',
@@ -133,11 +134,31 @@ export class CardView extends Phaser.GameObjects.Container {
     this.effectText.setOrigin(0.5, 0);
     this.add(this.effectText);
 
+    // Keyword badges
+    if (card.keywords && card.keywords.length > 0) {
+      const kwLabels: Record<string, string> = {
+        [Keyword.TAUNT]: '【挑発】',
+        [Keyword.RUSH]: '【突撃】',
+        [Keyword.LIFESTEAL]: '【吸収】',
+        [Keyword.BINDING]: '【縛り】',
+        [Keyword.CURSED_SURGE]: '【呪力増幅】',
+      };
+      const kwText = card.keywords.map(k => kwLabels[k] ?? k).join(' ');
+      const kwObj = scene.add.text(0, statsY + 18 + effectLines.length * 13 + 4, kwText, {
+        fontSize: '9px',
+        color: '#ffcc44',
+        fontFamily: "'Noto Serif JP', serif",
+        align: 'center',
+      });
+      kwObj.setOrigin(0.5, 0);
+      this.add(kwObj);
+    }
+
     // Flavor text
-    const flavorLines = wrapText(card.flavorTextJa, 10);
+    const flavorLines = wrapText(card.flavorTextJa, wrapWidth);
     const flavorY = halfH - 32;
     const flavorObj = scene.add.text(0, flavorY, flavorLines.join('\n'), {
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#888888',
       fontFamily: "'Noto Serif JP', serif",
       align: 'center',
@@ -213,6 +234,18 @@ export class CardView extends Phaser.GameObjects.Container {
         duration: 150,
         ease: 'Power2',
       });
+    }
+  }
+
+  setAffordable(affordable: boolean): void {
+    if (!this.isSelected && !this.isPlayable) {
+      if (!affordable) {
+        this.bg.setAlpha(0.5);
+        this.setAlpha(0.7);
+      } else {
+        this.bg.setAlpha(1);
+        this.setAlpha(1);
+      }
     }
   }
 

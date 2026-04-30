@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { BoardUnit } from '../game/GameState';
 
-export const UNIT_WIDTH = 90;
-export const UNIT_HEIGHT = 105;
+export const UNIT_WIDTH = 100;
+export const UNIT_HEIGHT = 115;
 
 const FACTION_COLORS: Record<string, number> = {
   TOKYO: 0x1a2a3a,
@@ -26,12 +26,12 @@ const FACTION_BORDER: Record<string, number> = {
 export class BoardUnitView extends Phaser.GameObjects.Container {
   public unit: BoardUnit;
   private bg: Phaser.GameObjects.Rectangle;
-  private exhaustedOverlay: Phaser.GameObjects.Rectangle;
   private borderGfx: Phaser.GameObjects.Graphics;
   private attackText: Phaser.GameObjects.Text;
+  private defText: Phaser.GameObjects.Text;
   private hpText: Phaser.GameObjects.Text;
   private nameText: Phaser.GameObjects.Text;
-  private furiText: Phaser.GameObjects.Text;
+  private summonSickGfx: Phaser.GameObjects.Graphics;
   public isSelected = false;
 
   constructor(
@@ -62,17 +62,8 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     this.borderGfx.strokeRect(-hw, -hh, UNIT_WIDTH, UNIT_HEIGHT);
     this.add(this.borderGfx);
 
-    // Furigana
-    this.furiText = scene.add.text(0, -hh + 5, unit.card.nameFurigana, {
-      fontSize: '9px',
-      color: '#aaaaaa',
-      fontFamily: "'Noto Serif JP', serif",
-    });
-    this.furiText.setOrigin(0.5, 0);
-    this.add(this.furiText);
-
-    // Name
-    this.nameText = scene.add.text(0, -hh + 14, unit.card.nameJa, {
+    // Name (no furigana on board units — saves space; furigana available on hand cards)
+    this.nameText = scene.add.text(0, -hh + 8, unit.card.nameJa, {
       fontSize: '13px',
       color: '#ffffff',
       fontFamily: "'Noto Serif JP', serif",
@@ -85,11 +76,11 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     // Divider
     const div = scene.add.graphics();
     div.lineStyle(1, 0x444444, 0.8);
-    div.lineBetween(-hw + 4, -hh + 45, hw - 4, -hh + 45);
+    div.lineBetween(-hw + 4, -hh + 42, hw - 4, -hh + 42);
     this.add(div);
 
-    // Card type badge
-    const typeLabel = scene.add.text(0, -hh + 49, this.getTypeLabel(unit.card.type as string, unit.hasTaunt), {
+    // Type / Taunt badge
+    const typeLabel = scene.add.text(0, -hh + 46, this.getTypeLabel(unit.card.type as string, unit.hasTaunt), {
       fontSize: '10px',
       color: '#aaaaaa',
       fontFamily: "'Noto Serif JP', serif",
@@ -97,48 +88,52 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     typeLabel.setOrigin(0.5, 0);
     this.add(typeLabel);
 
-    // Attack (bottom-left)
-    this.attackText = scene.add.text(-hw + 6, hh - 8, String(unit.attack), {
-      fontSize: '18px',
-      color: '#ff9900',
-      fontFamily: "'Noto Sans JP', monospace",
-      fontStyle: 'bold',
-    });
-    this.attackText.setOrigin(0, 1);
-    this.add(this.attackText);
+    // ── Stats row: ATK (left) | DEF (center) | HP (right) ───────────
+    const labelY = hh - 28;
+    const valueY = hh - 10;
 
-    // Attack label
-    const atkLabel = scene.add.text(-hw + 6, hh - 22, '攻', {
-      fontSize: '10px',
-      color: '#ff9900',
-      fontFamily: "'Noto Serif JP', serif",
+    // Attack — orange, bottom-left
+    const atkLabel = scene.add.text(-hw + 14, labelY, '攻', {
+      fontSize: '10px', color: '#ff9900', fontFamily: "'Noto Serif JP', serif",
     });
-    atkLabel.setOrigin(0, 1);
+    atkLabel.setOrigin(0.5, 0);
     this.add(atkLabel);
 
-    // HP (bottom-right)
-    this.hpText = scene.add.text(hw - 6, hh - 8, String(unit.currentHp), {
-      fontSize: '18px',
-      color: '#00ff88',
-      fontFamily: "'Noto Sans JP', monospace",
-      fontStyle: 'bold',
+    this.attackText = scene.add.text(-hw + 14, valueY, String(unit.attack), {
+      fontSize: '18px', color: '#ff9900', fontFamily: "'Noto Sans JP', monospace", fontStyle: 'bold',
     });
-    this.hpText.setOrigin(1, 1);
-    this.add(this.hpText);
+    this.attackText.setOrigin(0.5, 1);
+    this.add(this.attackText);
 
-    // HP label
-    const hpLabel = scene.add.text(hw - 6, hh - 22, 'HP', {
-      fontSize: '10px',
-      color: '#00ff88',
-      fontFamily: "'Noto Serif JP', serif",
+    // Defense — blue, bottom-center
+    const defLabel = scene.add.text(0, labelY, '防', {
+      fontSize: '10px', color: '#4488ff', fontFamily: "'Noto Serif JP', serif",
     });
-    hpLabel.setOrigin(1, 1);
+    defLabel.setOrigin(0.5, 0);
+    this.add(defLabel);
+
+    this.defText = scene.add.text(0, valueY, String(unit.card.defense), {
+      fontSize: '14px', color: '#4488ff', fontFamily: "'Noto Sans JP', monospace", fontStyle: 'bold',
+    });
+    this.defText.setOrigin(0.5, 1);
+    this.add(this.defText);
+
+    // HP — green, bottom-right
+    const hpLabel = scene.add.text(hw - 14, labelY, 'HP', {
+      fontSize: '10px', color: '#00ff88', fontFamily: "'Noto Serif JP', serif",
+    });
+    hpLabel.setOrigin(0.5, 0);
     this.add(hpLabel);
 
-    // Exhausted overlay
-    this.exhaustedOverlay = scene.add.rectangle(0, 0, UNIT_WIDTH, UNIT_HEIGHT, 0x000000, 0);
-    this.exhaustedOverlay.setOrigin(0.5, 0.5);
-    this.add(this.exhaustedOverlay);
+    this.hpText = scene.add.text(hw - 14, valueY, String(unit.currentHp), {
+      fontSize: '18px', color: '#00ff88', fontFamily: "'Noto Sans JP', monospace", fontStyle: 'bold',
+    });
+    this.hpText.setOrigin(0.5, 1);
+    this.add(this.hpText);
+
+    // Summoning-sickness indicator (yellow dot, top-right: !canAttack && !isExhausted = just deployed)
+    this.summonSickGfx = scene.add.graphics();
+    this.add(this.summonSickGfx);
 
     if (interactive) {
       this.setInteractive(
@@ -162,8 +157,8 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
   updateStats(): void {
     this.attackText.setText(String(this.unit.attack));
     this.hpText.setText(String(this.unit.currentHp));
-    this.exhaustedOverlay.setAlpha(this.unit.isExhausted ? 0.55 : 0);
 
+    // HP colour by health ratio
     const maxHp = this.unit.card.hp || 10;
     const ratio = this.unit.currentHp / maxHp;
     if (ratio > 0.5) {
@@ -173,30 +168,73 @@ export class BoardUnitView extends Phaser.GameObjects.Container {
     } else {
       this.hpText.setColor('#ff4444');
     }
+
+    // Exhausted: dim whole unit and grey the name
+    if (this.unit.isExhausted) {
+      this.setAlpha(0.55);
+      this.nameText.setColor('#888888');
+    } else {
+      this.setAlpha(1);
+      this.nameText.setColor('#ffffff');
+    }
+
+    // Summoning-sickness indicator (yellow dot when just deployed)
+    this.summonSickGfx.clear();
+    if (!this.unit.canAttack && !this.unit.isExhausted) {
+      const hw = UNIT_WIDTH / 2;
+      const hh = UNIT_HEIGHT / 2;
+      this.summonSickGfx.fillStyle(0xffdd44, 0.9);
+      this.summonSickGfx.fillCircle(hw - 8, -hh + 8, 5);
+      // Small tick marks inside the dot
+      this.summonSickGfx.fillStyle(0x000000, 0.85);
+      this.summonSickGfx.fillRect(hw - 11, -hh + 5, 6, 1);
+      this.summonSickGfx.fillRect(hw - 11, -hh + 8, 6, 1);
+      this.summonSickGfx.fillRect(hw - 11, -hh + 11, 6, 1);
+    }
   }
 
   setSelected(selected: boolean): void {
     this.isSelected = selected;
+    const hw = UNIT_WIDTH / 2;
+    const hh = UNIT_HEIGHT / 2;
     this.borderGfx.clear();
     if (selected) {
       this.borderGfx.lineStyle(3, 0xffff00, 1);
-      this.borderGfx.strokeRect(-UNIT_WIDTH / 2, -UNIT_HEIGHT / 2, UNIT_WIDTH, UNIT_HEIGHT);
     } else {
       const faction = this.unit.card.faction ?? 'NEUTRAL';
       const borderColor = FACTION_BORDER[faction] ?? 0x888888;
       this.borderGfx.lineStyle(2, borderColor, 1);
-      this.borderGfx.strokeRect(-UNIT_WIDTH / 2, -UNIT_HEIGHT / 2, UNIT_WIDTH, UNIT_HEIGHT);
     }
+    this.borderGfx.strokeRect(-hw, -hh, UNIT_WIDTH, UNIT_HEIGHT);
   }
 
   setAttackReady(ready: boolean): void {
     if (!this.isSelected) {
+      const hw = UNIT_WIDTH / 2;
+      const hh = UNIT_HEIGHT / 2;
       this.borderGfx.clear();
       const faction = this.unit.card.faction ?? 'NEUTRAL';
       const baseColor = FACTION_BORDER[faction] ?? 0x888888;
       const color = ready ? 0x00ff88 : baseColor;
-      this.borderGfx.lineStyle(ready ? 2 : 2, color, 1);
-      this.borderGfx.strokeRect(-UNIT_WIDTH / 2, -UNIT_HEIGHT / 2, UNIT_WIDTH, UNIT_HEIGHT);
+      this.borderGfx.lineStyle(2, color, 1);
+      this.borderGfx.strokeRect(-hw, -hh, UNIT_WIDTH, UNIT_HEIGHT);
+    }
+  }
+
+  /** Highlight this unit as a valid attack target (persistent red border). */
+  setAttackTarget(active: boolean): void {
+    if (!this.isSelected) {
+      const hw = UNIT_WIDTH / 2;
+      const hh = UNIT_HEIGHT / 2;
+      this.borderGfx.clear();
+      if (active) {
+        this.borderGfx.lineStyle(3, 0xff3333, 1);
+      } else {
+        const faction = this.unit.card.faction ?? 'NEUTRAL';
+        const baseColor = FACTION_BORDER[faction] ?? 0x888888;
+        this.borderGfx.lineStyle(2, baseColor, 1);
+      }
+      this.borderGfx.strokeRect(-hw, -hh, UNIT_WIDTH, UNIT_HEIGHT);
     }
   }
 }

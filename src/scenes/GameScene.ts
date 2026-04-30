@@ -31,6 +31,8 @@ export class GameScene extends Phaser.Scene {
   private turnInfoText!: Phaser.GameObjects.Text;
   private endTurnBtn!: Phaser.GameObjects.Rectangle;
   private endTurnBtnText!: Phaser.GameObjects.Text;
+  private endTurnGlowRect!: Phaser.GameObjects.Rectangle;
+  private endTurnPulseTween: Phaser.Tweens.Tween | null = null;
   private heroPowerBtn!: Phaser.GameObjects.Rectangle;
   private heroPowerBtnText!: Phaser.GameObjects.Text;
   private heroPowerBtnFuri!: Phaser.GameObjects.Text;
@@ -46,17 +48,25 @@ export class GameScene extends Phaser.Scene {
   private interactionMode: InteractionMode = 'IDLE';
   private selectedAttacker: BoardUnitView | null = null;
 
-  // AI hand visual
+  // Empty-board placeholder texts
+  private emptyBoardTexts: { player: Phaser.GameObjects.Text | null; ai: Phaser.GameObjects.Text | null } = {
+    player: null,
+    ai: null,
+  };
+
+  // AI hand visual (rectangles + pattern graphics)
   private aiHandCards: Phaser.GameObjects.Rectangle[] = [];
+  private aiHandGfx: Phaser.GameObjects.Graphics[] = [];
 
   // Enemy hero clickable area
   private enemyHeroArea!: Phaser.GameObjects.Rectangle;
 
   // Layout constants (computed in create())
-  private RIGHT_PANEL_X = 715;
+  private RIGHT_PANEL_X = 648;
   private AI_BOARD_Y = 145;
   private PLAYER_BOARD_Y = 268;
   private HAND_Y = 420;
+  private midY = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -68,14 +78,17 @@ export class GameScene extends Phaser.Scene {
     this.selectedAttacker = null;
     this.selectedCard = null;
     this.boardUnitViews = { player: [], ai: [] };
+    this.emptyBoardTexts = { player: null, ai: null };
   }
 
   create(): void {
     const { width, height } = this.scale;
-    this.RIGHT_PANEL_X = Math.round(width * 0.795);
+    // 70 / 30 split gives the play area more room and the log panel more width
+    this.RIGHT_PANEL_X = Math.round(width * 0.72);
     this.AI_BOARD_Y = Math.round(height * 0.285);
     this.PLAYER_BOARD_Y = Math.round(height * 0.525);
     this.HAND_Y = Math.round(height * 0.822);
+    this.midY = Math.round((this.AI_BOARD_Y + this.PLAYER_BOARD_Y) / 2);
 
     this.createBackground(width, height);
 
@@ -91,27 +104,56 @@ export class GameScene extends Phaser.Scene {
         this.enemyHeroArea.setFillStyle(0xff4444, 0.2);
       }
     });
-    this.enemyHeroArea.on('pointerout', () => this.enemyHeroArea.setFillStyle(0xffffff, 0));
+    this.enemyHeroArea.on('pointerout', () => {
+      if (this.interactionMode !== 'SELECTING_TARGET') {
+        this.enemyHeroArea.setFillStyle(0xffffff, 0);
+      } else {
+        // Stay at the target-mode tint
+        this.enemyHeroArea.setFillStyle(0xff2222, 0.1);
+      }
+    });
 
     // ── AI Board Area ────────────────────────────────────────────────
-    this.add.rectangle(this.RIGHT_PANEL_X / 2, this.AI_BOARD_Y, this.RIGHT_PANEL_X - 10, UNIT_HEIGHT + 10, 0x0a0a1a, 0.6);
+    // Blue tint = enemy territory
+    this.add.rectangle(this.RIGHT_PANEL_X / 2, this.AI_BOARD_Y, this.RIGHT_PANEL_X - 10, UNIT_HEIGHT + 14, 0x060c1a, 0.65);
+    // Subtle colored border
+    const aiBorderGfx = this.add.graphics();
+    aiBorderGfx.lineStyle(1, 0x1133aa, 0.4);
+    aiBorderGfx.strokeRect(5, this.AI_BOARD_Y - (UNIT_HEIGHT + 14) / 2, this.RIGHT_PANEL_X - 15, UNIT_HEIGHT + 14);
+    // Zone label
+    this.add.text(10, this.AI_BOARD_Y - (UNIT_HEIGHT + 14) / 2 + 4, '敵フィールド', {
+      fontSize: '10px', color: '#334466', fontFamily: "'Noto Serif JP', serif",
+    }).setAlpha(0.8);
 
     // ── Divider ──────────────────────────────────────────────────────
-    const midY = (this.AI_BOARD_Y + UNIT_HEIGHT / 2 + this.PLAYER_BOARD_Y - UNIT_HEIGHT / 2) / 2;
     const divGfx = this.add.graphics();
-    divGfx.lineStyle(1, 0x444444, 0.6);
-    divGfx.lineBetween(0, midY, this.RIGHT_PANEL_X - 5, midY);
+    divGfx.lineStyle(1, 0x555555, 0.7);
+    divGfx.lineBetween(0, this.midY, this.RIGHT_PANEL_X - 5, this.midY);
 
-    this.turnInfoText = this.add.text(this.RIGHT_PANEL_X / 2, midY - 10, '', {
+    this.turnInfoText = this.add.text(this.RIGHT_PANEL_X / 2, this.midY - 12, '', {
       fontSize: '16px', color: '#ffffff', fontFamily: "'Noto Sans JP', sans-serif", fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    this.phaseText = this.add.text(this.RIGHT_PANEL_X / 2, midY + 8, '', {
+    this.phaseText = this.add.text(this.RIGHT_PANEL_X / 2, this.midY + 8, '', {
       fontSize: '13px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
     }).setOrigin(0.5, 0.5);
 
+    // Interaction mode hint — shown at the divider, above turn info (high depth so it's never hidden)
+    this.interactionModeText = this.add.text(this.RIGHT_PANEL_X / 2, this.midY - 12, '', {
+      fontSize: '13px', color: '#ffdd00', fontFamily: "'Noto Serif JP', serif",
+      backgroundColor: '#000000cc', padding: { x: 8, y: 4 },
+    }).setOrigin(0.5, 0.5).setDepth(10).setVisible(false);
+
     // ── Player Board Area ────────────────────────────────────────────
-    this.add.rectangle(this.RIGHT_PANEL_X / 2, this.PLAYER_BOARD_Y, this.RIGHT_PANEL_X - 10, UNIT_HEIGHT + 10, 0x100808, 0.6);
+    // Warm red tint = player territory
+    this.add.rectangle(this.RIGHT_PANEL_X / 2, this.PLAYER_BOARD_Y, this.RIGHT_PANEL_X - 10, UNIT_HEIGHT + 14, 0x1a0800, 0.65);
+    const plBorderGfx = this.add.graphics();
+    plBorderGfx.lineStyle(1, 0xaa3311, 0.4);
+    plBorderGfx.strokeRect(5, this.PLAYER_BOARD_Y - (UNIT_HEIGHT + 14) / 2, this.RIGHT_PANEL_X - 15, UNIT_HEIGHT + 14);
+    // Zone label
+    this.add.text(10, this.PLAYER_BOARD_Y - (UNIT_HEIGHT + 14) / 2 + 4, '自フィールド', {
+      fontSize: '10px', color: '#553322', fontFamily: "'Noto Serif JP', serif",
+    }).setAlpha(0.8);
 
     // ── Player Hand Area ─────────────────────────────────────────────
     this.add.rectangle(this.RIGHT_PANEL_X / 2, this.HAND_Y, this.RIGHT_PANEL_X - 10, CARD_HEIGHT + 12, 0x080810, 0.5);
@@ -119,10 +161,14 @@ export class GameScene extends Phaser.Scene {
     // ── Bottom Controls ───────────────────────────────────────────────
     const ctrlY = height - 40;
 
+    // Proportional positions across the play area
+    const hpBtnX  = Math.round(this.RIGHT_PANEL_X * 0.20);
+    const playBtnX = Math.round(this.RIGHT_PANEL_X * 0.53);
+    const endBtnX  = Math.round(this.RIGHT_PANEL_X * 0.84);
+
     // Hero power button
-    const hpBtnX = 140;
     const hpInfo = HERO_POWERS[this.gameState.players.player.heroId];
-    this.heroPowerBtn = this.add.rectangle(hpBtnX, ctrlY, 230, 46, 0x441166);
+    this.heroPowerBtn = this.add.rectangle(hpBtnX, ctrlY, 220, 46, 0x441166);
     this.heroPowerBtn.setInteractive({ useHandCursor: true });
     this.heroPowerBtn.setStrokeStyle(2, 0xcc44ff);
 
@@ -138,15 +184,8 @@ export class GameScene extends Phaser.Scene {
     this.heroPowerBtn.on('pointerover', () => this.heroPowerBtn.setFillStyle(0x661199));
     this.heroPowerBtn.on('pointerout', () => this.heroPowerBtn.setFillStyle(0x441166));
 
-    // Interaction mode hint
-    this.interactionModeText = this.add.text(this.RIGHT_PANEL_X / 2, ctrlY - 14, '', {
-      fontSize: '10px', color: '#ffdd00', fontFamily: "'Noto Serif JP', serif",
-      backgroundColor: '#00000088', padding: { x: 4, y: 2 },
-    }).setOrigin(0.5, 0.5);
-
     // Play card button
-    const playBtnX = 390;
-    this.playBtn = this.add.rectangle(playBtnX, ctrlY, 170, 46, 0x442200);
+    this.playBtn = this.add.rectangle(playBtnX, ctrlY, 160, 46, 0x442200);
     this.playBtn.setInteractive({ useHandCursor: true });
     this.playBtn.setStrokeStyle(2, 0xaa6600);
 
@@ -162,19 +201,22 @@ export class GameScene extends Phaser.Scene {
     this.playBtn.on('pointerover', () => this.playBtn.setFillStyle(0x663300));
     this.playBtn.on('pointerout', () => this.playBtn.setFillStyle(0x442200));
 
-    // End turn button
-    const endBtnX = 575;
-    this.endTurnBtn = this.add.rectangle(endBtnX, ctrlY, 170, 46, 0x224422);
+    // End turn button — larger and visually dominant
+    this.endTurnBtn = this.add.rectangle(endBtnX, ctrlY, 200, 54, 0x224422);
     this.endTurnBtn.setInteractive({ useHandCursor: true });
     this.endTurnBtn.setStrokeStyle(2, 0x44aa44);
 
-    this.add.text(endBtnX, ctrlY - 13, 'たーんしゅうりょう', {
+    this.add.text(endBtnX, ctrlY - 16, 'たーんしゅうりょう', {
       fontSize: '8px', color: '#88aa88', fontFamily: "'Noto Serif JP', serif",
     }).setOrigin(0.5, 0.5);
 
     this.endTurnBtnText = this.add.text(endBtnX, ctrlY + 3, 'ターン終了', {
-      fontSize: '14px', color: '#aaffaa', fontFamily: "'Noto Serif JP', serif", fontStyle: 'bold',
+      fontSize: '15px', color: '#aaffaa', fontFamily: "'Noto Serif JP', serif", fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
+
+    // Glow overlay for "no more actions" pulse
+    this.endTurnGlowRect = this.add.rectangle(endBtnX, ctrlY, 204, 58, 0x44ff44);
+    this.endTurnGlowRect.setAlpha(0).setDepth(1);
 
     this.endTurnBtn.on('pointerdown', () => this.handleEndTurn());
     this.endTurnBtn.on('pointerover', () => this.endTurnBtn.setFillStyle(0x336633));
@@ -191,20 +233,27 @@ export class GameScene extends Phaser.Scene {
       fontSize: '14px', color: '#777777', fontFamily: "'Noto Serif JP', serif",
     });
 
-    this.logText = this.add.text(logX, 146, '', {
+    this.logText = this.add.text(logX, 148, '', {
       fontSize: '13px', color: '#cccccc', fontFamily: "'Noto Serif JP', serif",
       wordWrap: { width: width - this.RIGHT_PANEL_X - 16 },
       lineSpacing: 2,
     });
 
     // AI thinking indicator
-    this.aiThinkingText = this.add.text(this.RIGHT_PANEL_X / 2, midY, '', {
+    this.aiThinkingText = this.add.text(this.RIGHT_PANEL_X / 2, this.midY, '', {
       fontSize: '18px', color: '#ffaa00', fontFamily: "'Noto Serif JP', serif", fontStyle: 'bold',
       backgroundColor: '#000000cc', padding: { x: 10, y: 6 },
     }).setOrigin(0.5, 0.5).setDepth(50);
 
     // Player status bar (right panel, bottom)
     this.playerStatusBar = new StatusBar(this, this.RIGHT_PANEL_X + 8, height - 185, this.gameState.players.player);
+
+    // ESC key to cancel any active selection
+    this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on('down', () => {
+      if (this.interactionMode !== 'IDLE') {
+        this.cancelSelection();
+      }
+    });
 
     // Initial render
     this.renderAIHand();
@@ -228,13 +277,27 @@ export class GameScene extends Phaser.Scene {
     this.boardUnitViews[owner].forEach(v => v.destroy());
     this.boardUnitViews[owner] = [];
 
-    const units = this.gameState.players[owner].board;
-    if (units.length === 0) return;
+    // Clear old empty-state text
+    if (this.emptyBoardTexts[owner]) {
+      this.emptyBoardTexts[owner]!.destroy();
+      this.emptyBoardTexts[owner] = null;
+    }
 
+    const units = this.gameState.players[owner].board;
     const boardY = owner === 'ai' ? this.AI_BOARD_Y : this.PLAYER_BOARD_Y;
+
+    if (units.length === 0) {
+      // Show faded "no units" placeholder
+      this.emptyBoardTexts[owner] = this.add.text(
+        (this.RIGHT_PANEL_X - 10) / 2, boardY,
+        'ユニットなし',
+        { fontSize: '14px', color: '#2a2a44', fontFamily: "'Noto Serif JP', serif" }
+      ).setOrigin(0.5, 0.5);
+      return;
+    }
+
     const availW = this.RIGHT_PANEL_X - 10;
     const spacing = Math.min(UNIT_WIDTH + 8, availW / units.length);
-    // Center units in available width
     const totalUsed = (units.length - 1) * spacing + UNIT_WIDTH;
     const sx = (availW - totalUsed) / 2 + UNIT_WIDTH / 2;
 
@@ -252,7 +315,7 @@ export class GameScene extends Phaser.Scene {
           if (!view.isSelected) view.setAttackReady(false);
         });
       } else {
-        // AI units clickable as targets
+        // AI units are clickable as attack targets
         view.setInteractive(
           new Phaser.Geom.Rectangle(-UNIT_WIDTH / 2, -UNIT_HEIGHT / 2, UNIT_WIDTH, UNIT_HEIGHT),
           Phaser.Geom.Rectangle.Contains
@@ -266,6 +329,10 @@ export class GameScene extends Phaser.Scene {
         view.on('pointerout', () => {
           if (this.interactionMode === 'SELECTING_TARGET') {
             view.setSelected(false);
+            // Restore target-mode red border instead of default
+            const tauntUnits = this.gameState.players.ai.board.filter(u => u.hasTaunt);
+            const isValid = tauntUnits.length === 0 || view.unit.hasTaunt;
+            view.setAttackTarget(isValid);
           }
         });
       }
@@ -284,12 +351,10 @@ export class GameScene extends Phaser.Scene {
           this.showMessage('このユニットは攻撃できません', '#ff9900');
           return;
         }
-        // Deselect previous attacker
         if (this.selectedAttacker) {
           this.selectedAttacker.setSelected(false);
         }
         if (this.selectedAttacker === view) {
-          // Toggle off
           this.selectedAttacker = null;
           this.interactionMode = 'IDLE';
         } else {
@@ -357,6 +422,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private cancelSelection(): void {
+    if (this.selectedAttacker) {
+      this.selectedAttacker.setSelected(false);
+      this.selectedAttacker = null;
+    }
+    if (this.selectedCard) {
+      this.selectedCard.setSelected(false);
+      this.tweens.add({ targets: this.selectedCard, y: this.HAND_Y, duration: 150 });
+      this.selectedCard = null;
+    }
+    this.interactionMode = 'IDLE';
+    this.updateInteractionUI();
+  }
+
   private refreshBoardsAndUI(): void {
     this.renderBoard('player');
     this.renderBoard('ai');
@@ -370,19 +449,35 @@ export class GameScene extends Phaser.Scene {
 
   private renderAIHand(): void {
     this.aiHandCards.forEach(c => c.destroy());
+    this.aiHandGfx.forEach(g => g.destroy());
     this.aiHandCards = [];
+    this.aiHandGfx = [];
 
     const ai = this.gameState.players.ai;
     const handSize = ai.hand.length;
     const availW = this.RIGHT_PANEL_X - 10;
-    const cardW = 22;
-    const spacing = Math.min(28, (availW - cardW) / Math.max(1, handSize));
+    const cardW = 24;
+    const cardH = 34;
+    const spacing = Math.min(30, (availW - cardW) / Math.max(1, handSize));
     const startX = (availW - (handSize - 1) * spacing - cardW) / 2 + cardW / 2;
 
     for (let i = 0; i < handSize; i++) {
-      const card = this.add.rectangle(startX + i * spacing, 95, cardW, 32, 0x1a1a3a);
-      card.setStrokeStyle(1, 0x444488);
+      const cx = startX + i * spacing;
+      // Card-back base
+      const card = this.add.rectangle(cx, 95, cardW, cardH, 0x0d0d2a);
+      card.setStrokeStyle(1, 0x5566bb);
       this.aiHandCards.push(card);
+
+      // Card-back pattern: inner border + cross diagonals
+      const gfx = this.add.graphics();
+      const hw = Math.floor(cardW / 2) - 3;
+      const hh = Math.floor(cardH / 2) - 3;
+      gfx.lineStyle(1, 0x3344aa, 0.7);
+      gfx.strokeRect(cx - hw, 95 - hh, hw * 2, hh * 2);
+      gfx.lineStyle(1, 0x4455bb, 0.5);
+      gfx.lineBetween(cx - hw, 95 - hh, cx + hw, 95 + hh);
+      gfx.lineBetween(cx + hw, 95 - hh, cx - hw, 95 + hh);
+      this.aiHandGfx.push(gfx);
     }
   }
 
@@ -519,6 +614,9 @@ export class GameScene extends Phaser.Scene {
     this.interactionMode = 'IDLE';
     this.selectedCard = null;
 
+    // Stop any end-turn pulse
+    this.stopEndTurnPulse();
+
     endTurn(this.gameState);
     this.refreshBoardsAndUI();
 
@@ -528,7 +626,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // AI turn
+    // Show turn banner and start AI
+    this.showTurnBanner(false);
     this.isProcessingAI = true;
     this.aiThinkingText.setText('思考中...');
     this.endTurnBtn.disableInteractive();
@@ -576,6 +675,48 @@ export class GameScene extends Phaser.Scene {
       this.playBtn.setInteractive({ useHandCursor: true });
       this.heroPowerBtn.setInteractive({ useHandCursor: true });
       this.refreshBoardsAndUI();
+      this.showTurnBanner(true);
+    });
+  }
+
+  // ── Turn Banner ───────────────────────────────────────────────────
+
+  private showTurnBanner(isPlayer: boolean): void {
+    const playX = this.RIGHT_PANEL_X / 2;
+    const { height } = this.scale;
+    const bannerText = isPlayer ? 'あなたのターン' : '相手のターン';
+    const bannerColor = isPlayer ? '#aaffaa' : '#ffaaaa';
+
+    const overlay = this.add.rectangle(playX, height / 2, this.RIGHT_PANEL_X, height, 0x000000, 0)
+      .setDepth(150);
+    const banner = this.add.text(playX, height / 2, bannerText, {
+      fontSize: '34px', color: bannerColor,
+      fontFamily: "'Noto Serif JP', serif", fontStyle: 'bold',
+      backgroundColor: '#000000cc', padding: { x: 20, y: 12 },
+    }).setOrigin(0.5, 0.5).setDepth(151).setAlpha(0);
+
+    this.tweens.add({
+      targets: overlay,
+      alpha: 0.5,
+      duration: 200,
+      ease: 'Power2',
+    });
+    this.tweens.add({
+      targets: banner,
+      alpha: 1,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        this.time.delayedCall(900, () => {
+          this.tweens.add({
+            targets: [overlay, banner],
+            alpha: 0,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => { overlay.destroy(); banner.destroy(); },
+          });
+        });
+      },
     });
   }
 
@@ -597,7 +738,7 @@ export class GameScene extends Phaser.Scene {
     this.playerStatusBar.update(state.players.player);
     this.aiStatusBar.update(state.players.ai);
 
-    const logLines = state.log.slice(-10);
+    const logLines = state.log.slice(-12);
     this.logText.setText(logLines.join('\n'));
 
     const isPlayerTurn = state.activePlayer === 'player';
@@ -647,21 +788,77 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Pulse End Turn button when no more player actions are available
+    if (canInteract) {
+      const hasPlayableCard = player.hand.some(c => c.cost <= playerEnergy);
+      const hasAttackableUnit = player.board.some(u => u.canAttack);
+      const canUseHeroPower = !hpUsed && hpAffordable;
+      const hasActions = hasPlayableCard || hasAttackableUnit || canUseHeroPower;
+
+      if (!hasActions) {
+        this.startEndTurnPulse();
+      } else {
+        this.stopEndTurnPulse();
+      }
+    } else {
+      this.stopEndTurnPulse();
+    }
+
     this.updateInteractionUI();
+  }
+
+  private startEndTurnPulse(): void {
+    if (!this.endTurnPulseTween) {
+      this.endTurnBtn.setFillStyle(0x224422);
+      this.endTurnPulseTween = this.tweens.add({
+        targets: this.endTurnGlowRect,
+        alpha: 0.25,
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+  }
+
+  private stopEndTurnPulse(): void {
+    if (this.endTurnPulseTween) {
+      this.endTurnPulseTween.stop();
+      this.endTurnPulseTween = null;
+      this.endTurnGlowRect.setAlpha(0);
+    }
   }
 
   private updateInteractionUI(): void {
     switch (this.interactionMode) {
-      case 'SELECTING_TARGET':
-        this.interactionModeText.setText('攻撃対象を選んでください（敵ユニットまたは敵ヒーロー）');
+      case 'SELECTING_TARGET': {
+        this.interactionModeText.setText('攻撃対象を選択（ESCでキャンセル）');
         this.interactionModeText.setVisible(true);
+        this.turnInfoText.setAlpha(0.25);
+        this.phaseText.setAlpha(0.25);
+        // Persistent red border on valid targets
+        const tauntUnits = this.gameState.players.ai.board.filter(u => u.hasTaunt);
+        this.boardUnitViews.ai.forEach(v => {
+          const isValid = tauntUnits.length === 0 || v.unit.hasTaunt;
+          v.setAttackTarget(isValid);
+        });
+        // Subtle persistent tint on enemy hero area
+        this.enemyHeroArea.setFillStyle(0xff2222, tauntUnits.length > 0 ? 0 : 0.1);
         break;
+      }
       case 'SELECTING_ATTACKER':
-        this.interactionModeText.setText('攻撃するユニットを選んでください');
+        this.interactionModeText.setText('攻撃するユニットを選んでください（ESCでキャンセル）');
         this.interactionModeText.setVisible(true);
+        this.turnInfoText.setAlpha(0.25);
+        this.phaseText.setAlpha(0.25);
         break;
       default:
         this.interactionModeText.setVisible(false);
+        this.turnInfoText.setAlpha(1);
+        this.phaseText.setAlpha(1);
+        // Reset all target highlights
+        this.boardUnitViews.ai.forEach(v => v.setAttackTarget(false));
+        this.enemyHeroArea.setFillStyle(0xffffff, 0);
     }
   }
 
